@@ -24,6 +24,9 @@ import {
   SendToPluginEvent,
   streamDeck 
 } from '@elgato/streamdeck';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { iconManager, PullRequestIcon } from '../services/iconManager';
 import { azureDevOpsClient } from '../services/azureDevOpsClient';
 import { settingsManager } from '../services/settingsManager';
 import { IPullRequestMonitorSettings } from '../types/settings';
@@ -289,6 +292,34 @@ export class PullRequestTracker extends SingletonAction<JsonObject> {
   }
 
   /**
+   * Open a URL in the default browser
+   */
+  private async openUrl(url: string): Promise<void> {
+    try {
+      const execPromise = promisify(exec);
+      let command: string;
+      
+      // Determine the command based on the platform
+      if (process.platform === 'win32') {
+        // Windows
+        command = `start "" "${url}"`;
+      } else if (process.platform === 'darwin') {
+        // macOS
+        command = `open "${url}"`;
+      } else {
+        // Linux and others
+        command = `xdg-open "${url}"`;
+      }
+      
+      streamDeck.logger.info(`Opening URL using command: ${command}`);
+      await execPromise(command);
+    } catch (error) {
+      streamDeck.logger.error(`Error opening URL ${url}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Called when the user presses the button
    */
   public override async onKeyDown(ev: KeyDownEvent<JsonObject>): Promise<void> {
@@ -301,9 +332,33 @@ export class PullRequestTracker extends SingletonAction<JsonObject> {
       return;
     }
     
-    // In the future, this should open the pull requests in a web browser
-    // For now, just refresh the status
-    await this.updatePrStatus(context, settings);
+    try {
+      const organization = azureDevOpsClient.getOrganizationName();
+      let prListUrl = `https://dev.azure.com/${organization}/${settings.projectId}/_pulls?state=active`;
+      
+      if (settings.repositoryId && settings.repositoryId !== 'all') {
+        // If a specific repository is selected, link to its PRs
+        // We need the repository name, not just ID, for the URL.
+        // For simplicity, we'll try to fetch it. If not found, link to project PRs.
+        try {
+          const repos = await azureDevOpsClient.getRepositories(settings.projectId);
+          const repo = repos.find(r => r.id === settings.repositoryId);
+          if (repo) {
+            prListUrl = `https://dev.azure.com/${organization}/${settings.projectId}/_git/${repo.name}/pullrequests?state=active`;
+          }
+        } catch (repoError) {
+          streamDeck.logger.warn(`Could not fetch repository details for ${settings.repositoryId}, linking to project PRs. Error: ${repoError}`);
+        }
+      }
+      
+      streamDeck.logger.info(`Opening PR list URL: ${prListUrl}`);
+      await this.openUrl(prListUrl);
+      
+    } catch (error) {
+      streamDeck.logger.error(`Error opening PR list URL: ${error}`);
+      // Refresh the status to show any error state
+      await this.updatePrStatus(context, settings);
+    }
   }
 
   /**
@@ -394,49 +449,49 @@ export class PullRequestTracker extends SingletonAction<JsonObject> {
    */
   private async updateButtonAppearance(context: string, prCount: number): Promise<void> {
     let title = 'PRs';
-    let state: string | undefined;
+    let icon: PullRequestIcon;
     
-    // Set state and title based on PR count
+    // Set icon and title based on PR count
     if (prCount === 0) {
       title = 'No PRs';
-      state = 'none';
+      icon = PullRequestIcon.None;
     } else if (prCount === 1) {
       title = '1 PR';
-      state = 'active';
+      icon = PullRequestIcon.Active;
     } else {
       title = `${prCount} PRs`;
-      state = 'active';
+      icon = PullRequestIcon.Active;
     }
     
     // Update the button
-    await this.updateButton(context, title, state);
+    await this.updateButton(context, title, icon);
   }
 
   /**
    * Show configuration required state
    */
   private async showConfigurationRequired(context: string): Promise<void> {
-    await this.updateButton(context, 'Setup\nRequired', 'config');
+    await this.updateButton(context, 'Setup\nRequired', PullRequestIcon.Config);
   }
 
   /**
    * Show disconnected state
    */
   private async showDisconnected(context: string): Promise<void> {
-    await this.updateButton(context, 'ADO\nDisconnected', 'disconnected');
+    await this.updateButton(context, 'ADO\nDisconnected', PullRequestIcon.Disconnected);
   }
 
   /**
    * Show error state
    */
   private async showError(context: string): Promise<void> {
-    await this.updateButton(context, 'Error', 'error');
+    await this.updateButton(context, 'Error', PullRequestIcon.Error);
   }
 
   /**
-   * Update the button title and state
+   * Update the button title and icon
    */
-  private async updateButton(context: string, title: string, state?: string): Promise<void> {
+  private async updateButton(context: string, title: string, icon?: PullRequestIcon): Promise<void> {
     try {
       // Find the matching action by context ID
       const action = Array.from(this.actions).find(a => a.id === context);
@@ -448,10 +503,18 @@ export class PullRequestTracker extends SingletonAction<JsonObject> {
       // Update the button title
       await action.setTitle(title);
       
-      // Update the button state if provided
-      if (state && 'setState' in action) {
-        // setState is only available on KeyAction, not DialAction
-        await action.setState(parseInt(state) || 0);
+      // Set the icon if provided
+      if (icon && 'setImage' in action) {
+        const iconUrl = iconManager.getPullRequestIcon(icon);
+        if (iconUrl) {
+          await action.setImage(iconUrl);
+        } else {
+          // Fallback if icon loading fails, clear image
+          await action.setImage(undefined);
+        }
+      } else if ('setImage' in action) {
+        // If no icon provided, clear image
+        await action.setImage(undefined);
       }
     } catch (error) {
       streamDeck.logger.error(`Error updating button state: ${error}`);

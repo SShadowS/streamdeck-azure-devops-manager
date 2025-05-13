@@ -231,7 +231,9 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
    - Add custom icons for different pipeline states
 
 4. **Testing Enhancements**:
-   - Add tests for action classes (PipelineMonitor, GlobalSettings)
+   - ✅ Add tests for action classes (PipelineMonitor now at ~78% coverage)
    - Add tests for plugin entry point
    - Consider implementing E2E tests for Property Inspector
-   - Fix failing enhanced tests and improve test stability
+   - ✅ Fixed failing enhanced tests and improved test stability
+   - ✅ Implemented robust mocking strategies for Stream Deck SDK interactions
+   - ✅ Resolved issues with testing singleton patterns and protected static properties

@@ -36,6 +36,22 @@
 			]
 		},
 		{
+			"Name": "Pipeline Trigger",
+			"UUID": "com.sshadows.azure-devops-manager.pipeline-trigger",
+			"Icon": "imgs/actions/pipeline-monitor/icon",
+			"Tooltip": "Triggers an Azure DevOps pipeline build.",
+			"PropertyInspectorPath": "ui/pipelineTrigger.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/pipeline-monitor/key",
+					"TitleAlignment": "middle"
+				}
+			]
+		},
+		{
 			"Name": "Pull Request Tracker",
 			"UUID": "com.sshadows.azure-devops-manager.pr-tracker",
 			"Icon": "imgs/actions/pipeline-monitor/icon",

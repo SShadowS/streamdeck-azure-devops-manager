@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Pipeline Trigger Settings</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,minimal-ui,viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #E2E2E2;
+            margin: 0;
+            padding: 8px;
+            user-select: none;
+        }
+
+        .sdpi-wrapper {
+            width: 100%;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        .sdpi-item {
+            margin-bottom: 12px;
+        }
+
+        .sdpi-heading {
+            padding: 8px 0;
+            font-weight: bold;
+        }
+
+        .sdpi-item-label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .sdpi-item-value {
+            display: flex;
+            align-items: center;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #3D3D3D;
+            color: #E2E2E2;
+            font-size: 12px;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #77F;
+        }
+
+        .info-text {
+            font-size: 11px;
+            color: #AAA;
+            margin-top: 4px;
+        }
+
+        .error-text {
+            font-size: 11px;
+            color: #F77;
+            margin-top: 4px;
+            font-weight: bold;
+        }
+
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            animation: spin 2s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        
+        .success-text {
+            font-size: 11px;
+            color: #7F7;
+            margin-top: 4px;
+            font-weight: bold;
+        }
+        
+        .button {
+            padding: 6px 12px;
+            border-radius: 4px;
+            background-color: #4D4D4D;
+            color: #FFF;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 12px;
+            margin-right: 6px;
+        }
+
+        .button:hover {
+            background-color: #5D5D5D;
+        }
+
+        .button:active {
+            background-color: #3D3D3D;
+        }
+
+        .button-primary {
+            background-color: #1976D2;
+        }
+
+        .button-primary:hover {
+            background-color: #2196F3;
+        }
+
+        .button-primary:active {
+            background-color: #0D47A1;
+        }
+    </style>
+</head>
+<body>
+    <div class="sdpi-wrapper">
+        <div class="sdpi-item">
+            <div class="sdpi-heading">Pipeline Trigger Settings</div>
+        </div>
+
+        <div class="sdpi-item">
+            <label class="sdpi-item-label" for="projectSelect">Project</label>
+            <div class="sdpi-item-value">
+                <select id="projectSelect" class="sdpi-item-value"></select>
+                <div id="projectSpinner" class="spinner hidden"></div>
+            </div>
+            <div id="projectError" class="error-text hidden">Failed to load projects</div>
+            <div class="info-text">Select the Azure DevOps project</div>
+        </div>
+
+        <div class="sdpi-item">
+            <label class="sdpi-item-label" for="pipelineSelect">Pipeline</label>
+            <div class="sdpi-item-value">
+                <select id="pipelineSelect" class="sdpi-item-value"></select>
+                <div id="pipelineSpinner" class="spinner hidden"></div>
+            </div>
+            <div id="pipelineError" class="error-text hidden">Failed to load pipelines</div>
+            <div class="info-text">Select the pipeline to trigger</div>
+        </div>
+
+        <div class="sdpi-item">
+            <label class="sdpi-item-label" for="branchInput">Branch (Optional)</label>
+            <div class="sdpi-item-value">
+                <input type="text" id="branchInput" placeholder="main">
+            </div>
+            <div class="info-text">Leave empty to use the default branch</div>
+        </div>
+
+        <div class="sdpi-item">
+            <div class="checkbox-container">
+                <input type="checkbox" id="showConfirmation" checked>
+                <label for="showConfirmation">Show confirmation before triggering</label>
+            </div>
+        </div>
+
+        <div class="sdpi-item">
+            <div class="checkbox-container">
+                <input type="checkbox" id="openAfterTrigger" checked>
+                <label for="openAfterTrigger">Open build in browser after triggering</label>
+            </div>
+        </div>
+
+        <div id="connectionError" class="sdpi-item error-text hidden">
+            Not connected to Azure DevOps. Please configure your connection below.
+        </div>
+        
+        <div id="connectionStatus" class="sdpi-item hidden">
+            <div class="success-text">Connected to Azure DevOps</div>
+            <button id="editConnection" class="button">Edit Connection</button>
+        </div>
+
+        <div id="connectionSettings" class="sdpi-item hidden">
+            <div class="sdpi-heading">Azure DevOps Connection</div>
+            
+            <label class="sdpi-item-label" for="organizationUrl">Organization URL</label>
+            <div class="sdpi-item-value">
+                <input type="text" id="organizationUrl" placeholder="https://dev.azure.com/your-organization">
+            </div>
+            <div class="info-text">Enter your Azure DevOps organization URL</div>
+            
+            <label class="sdpi-item-label" for="personalAccessToken">Personal Access Token (PAT)</label>
+            <div class="sdpi-item-value">
+                <input type="password" id="personalAccessToken" placeholder="Enter your PAT">
+            </div>
+            <div class="info-text">Enter your Azure DevOps Personal Access Token</div>
+            
+            <button id="saveConnection" class="button button-primary">Save Connection</button>
+            <button id="testConnection" class="button">Test Connection</button>
+            
+            <div id="testSuccess" class="success-text hidden">Successfully connected to Azure DevOps!</div>
+            <div id="testError" class="error-text hidden">Failed to connect to Azure DevOps.</div>
+            <div id="testingConnection" class="hidden">
+                <div class="spinner"></div>
+                <span style="margin-left: 8px; font-size: 12px;">Testing connection...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let pluginUUID = null;
+        let actionInfo = null;
+        let globalSettings = null;
+        
+        let projects = [];
+        let pipelines = [];
+        
+        // Connect to Stream Deck
+        function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
+            pluginUUID = inPluginUUID;
+            actionInfo = JSON.parse(inInfo);
+            
+            // Register with Stream Deck
+            websocket = new WebSocket(`ws://127.0.0.1:${inPort}`);
+            
+            websocket.onopen = function() {
+                // WebSocket is connected, register the plugin
+                websocket.send(JSON.stringify({
+                    event: inRegisterEvent,
+                    uuid: inPluginUUID
+                }));
+                
+                // Request global settings
+                requestGlobalSettings();
+                
+                // Request project list
+                requestProjects();
+            };
+            
+            websocket.onmessage = function(evt) {
+                const data = JSON.parse(evt.data);
+                const event = data.event;
+                const payload = data.payload;
+                
+                if (event === 'didReceiveGlobalSettings') {
+                    globalSettings = payload.settings;
+                    
+                    // Update connection form with existing settings if available
+                    if (globalSettings && globalSettings.auth) {
+                        document.getElementById('organizationUrl').value = 
+                            globalSettings.auth.organizationUrl || '';
+                        
+                        // Only set PAT if it exists (we don't want to clear it)
+                        if (globalSettings.auth.personalAccessToken) {
+                            document.getElementById('personalAccessToken').value = 
+                                globalSettings.auth.personalAccessToken;
+                        }
+                    }
+
+                    // Check if we have valid connection settings
+                    if (!hasValidAuthSettings()) {
+                        // Show error and settings form if no valid connection
+                        document.getElementById('connectionError').classList.remove('hidden');
+                        document.getElementById('connectionSettings').classList.remove('hidden');
+                        document.getElementById('connectionStatus').classList.add('hidden');
+                        document.getElementById('projectSelect').disabled = true;
+                        document.getElementById('pipelineSelect').disabled = true;
+                    } else {
+                        // Show success status with edit button if we have a valid connection
+                        document.getElementById('connectionError').classList.add('hidden');
+                        document.getElementById('connectionSettings').classList.add('hidden');
+                        document.getElementById('connectionStatus').classList.remove('hidden');
+                        document.getElementById('projectSelect').disabled = false;
+                        document.getElementById('pipelineSelect').disabled = false;
+                    }
+                } 
+                else if (event === 'didReceiveSettings') {
+                    // Plugin/action settings received
+                    let settings = payload.settings;
+                    
+                    // Initialize settings if empty
+                    if (!settings) {
+                        settings = {
+                            projectId: '',
+                            pipelineId: 0,
+                            branch: '',
+                            showConfirmation: true,
+                            openAfterTrigger: true
+                        };
+                        
+                        // Save default settings
+                        saveSettings(settings);
+                    }
+                    
+                    // Update UI with settings values
+                    document.getElementById('branchInput').value = settings.branch || '';
+                    document.getElementById('showConfirmation').checked = settings.showConfirmation !== false;
+                    document.getElementById('openAfterTrigger').checked = settings.openAfterTrigger !== false;
+                    
+                    // Remember the settings for current values
+                    actionInfo.payload.settings = settings;
+                    
+                    // If we have a project selected, select it in the dropdown
+                    if (settings.projectId && document.getElementById('projectSelect').options.length > 0) {
+                        document.getElementById('projectSelect').value = settings.projectId;
+                        requestPipelines(settings.projectId, settings.pipelineId);
+                    }
+                } 
+                else if (event === 'sendToPropertyInspector') {
+                    if (payload.command === 'projects') {
+                        // Projects received
+                        projects = payload.data || [];
+                        populateProjectsDropdown(projects, actionInfo.payload.settings.projectId);
+                        document.getElementById('projectSpinner').classList.add('hidden');
+                        
+                        // If we have a project selected, request pipelines for it
+                        if (actionInfo.payload.settings.projectId) {
+                            requestPipelines(actionInfo.payload.settings.projectId, actionInfo.payload.settings.pipelineId);
+                        }
+                    } 
+                    else if (payload.command === 'pipelines') {
+                        // Pipelines received
+                        pipelines = payload.data || [];
+                        populatePipelinesDropdown(pipelines, actionInfo.payload.settings.pipelineId);
+                        document.getElementById('pipelineSpinner').classList.add('hidden');
+                    } 
+                    else if (payload.command === 'testConnectionResult') {
+                        // Hide loading indicator
+                        document.getElementById('testingConnection').classList.add('hidden');
+                        
+                        // Show success or error message
+                        if (payload.success) {
+                            document.getElementById('testSuccess').classList.remove('hidden');
+                            document.getElementById('testError').classList.add('hidden');
+                        } else {
+                            document.getElementById('testSuccess').classList.add('hidden');
+                            document.getElementById('testError').classList.remove('hidden');
+                            document.getElementById('testError').textContent = payload.error || 'Failed to connect to Azure DevOps';
+                        }
+                    }
+                    else if (payload.command === 'error') {
+                        console.error('Error from plugin:', payload.data);
+                        
+                        if (payload.type === 'projects') {
+                            document.getElementById('projectError').classList.remove('hidden');
+                            document.getElementById('projectSpinner').classList.add('hidden');
+                        } 
+                        else if (payload.type === 'pipelines') {
+                            document.getElementById('pipelineError').classList.remove('hidden');
+                            document.getElementById('pipelineSpinner').classList.add('hidden');
+                        }
+                    }
+                }
+            };
+            
+            websocket.onclose = function() {
+                // WebSocket is closed
+                console.log("WebSocket connection closed");
+            };
+        }
+        
+        // Request the current global settings
+        function requestGlobalSettings() {
+            if (websocket) {
+                websocket.send(JSON.stringify({
+                    event: 'getGlobalSettings',
+                    context: pluginUUID
+                }));
+            }
+        }
+        
+        // Request projects list from the plugin
+        function requestProjects() {
+            if (websocket) {
+                document.getElementById('projectSpinner').classList.remove('hidden');
+                document.getElementById('projectError').classList.add('hidden');
+                
+                websocket.send(JSON.stringify({
+                    event: 'sendToPlugin',
+                    action: actionInfo.action,
+                    context: actionInfo.context,
+                    payload: {
+                        command: 'getProjects'
+                    }
+                }));
+            }
+        }
+        
+        // Request pipelines list for a specific project
+        function requestPipelines(projectId, pipelineId) {
+            if (websocket && projectId) {
+                document.getElementById('pipelineSpinner').classList.remove('hidden');
+                document.getElementById('pipelineError').classList.add('hidden');
+                
+                websocket.send(JSON.stringify({
+                    event: 'sendToPlugin',
+                    action: actionInfo.action,
+                    context: actionInfo.context,
+                    payload: {
+                        command: 'getPipelines',
+                        projectId: projectId,
+                        pipelineId: pipelineId
+                    }
+                }));
+            }
+        }
+        
+        // Populate the projects dropdown
+        function populateProjectsDropdown(projects, selectedProjectId) {
+            const dropdown = document.getElementById('projectSelect');
+            
+            // Clear existing options
+            dropdown.innerHTML = '';
+            
+            // Add empty option
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = '-- Select a project --';
+            dropdown.appendChild(emptyOption);
+            
+            // Add options for each project
+            projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.name;
+                dropdown.appendChild(option);
+            });
+            
+            // Set selected project if one is specified
+            if (selectedProjectId) {
+                dropdown.value = selectedProjectId;
+            }
+        }
+        
+        // Populate the pipelines dropdown
+        function populatePipelinesDropdown(pipelines, selectedPipelineId) {
+            const dropdown = document.getElementById('pipelineSelect');
+            
+            // Clear existing options
+            dropdown.innerHTML = '';
+            
+            // Add empty option
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '0';
+            emptyOption.textContent = '-- Select a pipeline --';
+            dropdown.appendChild(emptyOption);
+            
+            // Add options for each pipeline
+            pipelines.forEach(pipeline => {
+                const option = document.createElement('option');
+                option.value = pipeline.id.toString();
+                option.textContent = pipeline.name;
+                dropdown.appendChild(option);
+            });
+            
+            // Set selected pipeline if one is specified
+            if (selectedPipelineId) {
+                dropdown.value = selectedPipelineId.toString();
+            }
+        }
+        
+        // Save settings
+        function saveSettings(settings) {
+            if (websocket) {
+                websocket.send(JSON.stringify({
+                    event: 'setSettings',
+                    context: actionInfo.context,
+                    payload: settings
+                }));
+            }
+        }
+        
+        // Check if we have valid auth settings
+        function hasValidAuthSettings() {
+            return (
+                globalSettings &&
+                globalSettings.auth &&
+                globalSettings.auth.organizationUrl &&
+                globalSettings.auth.organizationUrl.trim() !== '' &&
+                globalSettings.auth.personalAccessToken &&
+                globalSettings.auth.personalAccessToken.trim() !== ''
+            );
+        }
+        
+        // Save global settings
+        function saveGlobalSettings() {
+            if (websocket) {
+                websocket.send(JSON.stringify({
+                    event: 'setGlobalSettings',
+                    context: pluginUUID,
+                    payload: globalSettings
+                }));
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Project selection changed
+            document.getElementById('projectSelect').addEventListener('change', function() {
+                const projectId = this.value;
+                
+                // Update settings with new project ID
+                const settings = actionInfo.payload.settings || {};
+                settings.projectId = projectId;
+                
+                // Reset pipeline ID if project changed
+                if (settings.projectId !== actionInfo.payload.settings.projectId) {
+                    settings.pipelineId = 0;
+                }
+                
+                // Save settings
+                saveSettings(settings);
+                
+                // Request pipelines for the new project
+                if (projectId) {
+                    requestPipelines(projectId, 0);
+                } else {
+                    document.getElementById('pipelineSelect').innerHTML = '';
+                }
+            });
+            
+            // Pipeline selection changed
+            document.getElementById('pipelineSelect').addEventListener('change', function() {
+                const pipelineId = parseInt(this.value, 10);
+                
+                // Update settings with new pipeline ID
+                const settings = actionInfo.payload.settings || {};
+                settings.pipelineId = pipelineId;
+                
+                // Save settings
+                saveSettings(settings);
+            });
+            
+            // Branch input changed
+            document.getElementById('branchInput').addEventListener('change', function() {
+                const settings = actionInfo.payload.settings || {};
+                settings.branch = this.value;
+                
+                // Save settings
+                saveSettings(settings);
+            });
+            
+            // Show confirmation checkbox changed
+            document.getElementById('showConfirmation').addEventListener('change', function() {
+                const settings = actionInfo.payload.settings || {};
+                settings.showConfirmation = this.checked;
+                
+                // Save settings
+                saveSettings(settings);
+            });
+            
+            // Open after trigger checkbox changed
+            document.getElementById('openAfterTrigger').addEventListener('change', function() {
+                const settings = actionInfo.payload.settings || {};
+                settings.openAfterTrigger = this.checked;
+                
+                // Save settings
+                saveSettings(settings);
+            });
+            
+            // Save connection settings
+            document.getElementById('saveConnection').addEventListener('click', function() {
+                const organizationUrl = document.getElementById('organizationUrl').value.trim();
+                const personalAccessToken = document.getElementById('personalAccessToken').value.trim();
+                
+                if (!organizationUrl || !personalAccessToken) {
+                    document.getElementById('testError').textContent = 'Please enter both Organization URL and Personal Access Token';
+                    document.getElementById('testError').classList.remove('hidden');
+                    document.getElementById('testSuccess').classList.add('hidden');
+                    return;
+                }
+                
+                // Reset success/error messages
+                document.getElementById('testSuccess').classList.add('hidden');
+                document.getElementById('testError').classList.add('hidden');
+                
+                // Create or update global settings
+                if (!globalSettings) {
+                    globalSettings = {
+                        auth: {
+                            organizationUrl,
+                            personalAccessToken
+                        },
+                        projects: [],
+                        refreshInterval: 60
+                    };
+                } else {
+                    if (!globalSettings.auth) {
+                        globalSettings.auth = {};
+                    }
+                    
+                    globalSettings.auth.organizationUrl = organizationUrl;
+                    globalSettings.auth.personalAccessToken = personalAccessToken;
+                }
+                
+                // Save global settings
+                saveGlobalSettings();
+                requestProjects(); // Refresh projects list after updating connection
+            });
+            
+            // Test connection button
+            document.getElementById('testConnection').addEventListener('click', function() {
+                const organizationUrl = document.getElementById('organizationUrl').value.trim();
+                const personalAccessToken = document.getElementById('personalAccessToken').value.trim();
+                
+                if (!organizationUrl || !personalAccessToken) {
+                    document.getElementById('testError').textContent = 'Please enter both Organization URL and Personal Access Token';
+                    document.getElementById('testError').classList.remove('hidden');
+                    document.getElementById('testSuccess').classList.add('hidden');
+                    return;
+                }
+                
+                // Reset success/error messages
+                document.getElementById('testSuccess').classList.add('hidden');
+                document.getElementById('testError').classList.add('hidden');
+                
+                // Show testing indicator
+                document.getElementById('testingConnection').classList.remove('hidden');
+                
+                // Send test connection request to plugin
+                websocket.send(JSON.stringify({
+                    event: 'sendToPlugin',
+                    action: actionInfo.action,
+                    context: actionInfo.context,
+                    payload: {
+                        command: 'testConnection',
+                        organizationUrl,
+                        personalAccessToken
+                    }
+                }));
+            });
+            
+            // Edit connection button
+            document.getElementById('editConnection').addEventListener('click', function() {
+                // Hide the connection status and show the connection settings form
+                document.getElementById('connectionStatus').classList.add('hidden');
+                document.getElementById('connectionSettings').classList.remove('hidden');
+                
+                // Focus on the organization URL input for better UX
+                document.getElementById('organizationUrl').focus();
+            });
+        });
+    </script>
+</body>
+</html>

@@ -133,7 +133,7 @@ export class AzureDevOpsClient {
   /**
    * Extract the organization name from the organization URL
    */
-  private getOrganizationName(): string {
+  public getOrganizationName(): string {
     this.ensureInitialized();
     // Extract organization name from URL
     // Example: "https://dev.azure.com/myorganization" -> "myorganization"
@@ -527,6 +527,82 @@ export class AzureDevOpsClient {
         return [];
       }
       
+      throw error;
+    }
+  }
+
+  /**
+   * Get the web URL of the latest run for a pipeline
+   * @param project The name or ID of the project
+   * @param pipelineId The ID of the pipeline definition
+   * @returns The web URL of the latest pipeline run or null if no runs exist
+   */
+  public async getLatestPipelineRunUrl(project: string, pipelineId: number): Promise<string | null> {
+    try {
+      console.log(`Fetching latest run URL for pipeline ${pipelineId} in project ${project}`);
+      
+      // First get the latest build
+      const latestBuild = await this.getPipelineStatus(project, pipelineId);
+      
+      // If no builds found, return null
+      if (!latestBuild) {
+        return null;
+      }
+      
+      // Return the URL from the build
+      return latestBuild.url;
+    } catch (error) {
+      console.error(`Error fetching latest run URL for ${project} pipeline ${pipelineId}:`, error);
+      
+      // If the pipeline doesn't exist or we get a 404, return null
+      if (error instanceof ApiError && error.type === ApiErrorType.NotFound) {
+        return null;
+      }
+      
+      throw error;
+    }
+  }
+  
+  /**
+   * Queue a new pipeline run
+   * @param project The name or ID of the project
+   * @param pipelineId The ID of the pipeline definition
+   * @param branch Optional branch to build (defaults to the default branch)
+   * @returns The queued build
+   */
+  public async queuePipelineRun(
+    project: string, 
+    pipelineId: number, 
+    branch?: string
+  ): Promise<IBuild> {
+    try {
+      console.log(`Queueing pipeline run for ${pipelineId} in project ${project}`);
+      
+      // Prepare the request body
+      const body: Record<string, unknown> = {
+        definition: {
+          id: pipelineId
+        }
+      };
+      
+      // Add branch if provided
+      if (branch) {
+        body.sourceBranch = branch;
+      }
+      
+      // Queue the build
+      const response = await this.request<IBuild>(
+        `${project}/_apis/build/builds`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          skipCache: true // Always skip cache for POST requests
+        }
+      );
+      
+      return response;
+    } catch (error) {
+      console.error(`Error queueing pipeline run for ${project} pipeline ${pipelineId}:`, error);
       throw error;
     }
   }

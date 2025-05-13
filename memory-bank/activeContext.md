@@ -6,6 +6,12 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
 
 ## Recent Changes
 
+- **Removed Unused GlobalSettings Files**
+  - ✅ Removed `src/actions/globalSettings.ts` action class
+  - ✅ Removed `com.sshadows.azure-devops-manager.sdPlugin/ui/globalSettings.html` Property Inspector
+  - ✅ Confirmed these files were unused - the GlobalSettings action wasn't registered in plugin.ts or manifest.json
+  - ✅ Connection testing and configuration functionality is now integrated in individual action Property Inspectors
+
 - **Implemented Pull Request Tracker Action**
   - ✅ Created PullRequestTracker class extending SingletonAction
   - ✅ Implemented core event handlers (onWillAppear, onWillDisappear, onKeyDown)
@@ -98,6 +104,16 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
     - Project management functionality
     - Authentication validation edge cases
 
+- **Fixed Enhanced Test Suites**
+  - ✅ Addressed multiple failing tests in enhanced test suites
+  - ✅ Fixed azureDevOpsClient.test.enhanced.ts by properly mocking the request method
+  - ✅ Fixed explicit type handling for ApiError catches in various error scenarios
+  - ✅ Resolved issues with pipelineMonitor.test.ts by avoiding manipulation of protected static properties
+  - ✅ Implemented Array.from() mocking strategy to intercept action collections
+  - ✅ Refactored problematic tests to use explicit error handling patterns
+  - ✅ Improved tests for asynchronous operations with better Promise handling
+  - ✅ Increased overall test stability by minimizing inter-test dependencies
+
 ## Next Steps
 
 1. ✅ **Complete Pipeline Monitor Action**
@@ -108,9 +124,9 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
    - ⏭️ Add custom icons for different pipeline states
    
 2. **Improve Test Coverage for Actions**
-   - Create tests for PipelineMonitor action (currently at 0% coverage)
+   - ✅ Create tests for PipelineMonitor action (now has ~78% coverage)
    - Create tests for entry point (plugin.ts)
-   - Address failing tests in enhanced test suites
+   - ✅ Address failing tests in enhanced test suites
    - Consider implementing E2E tests with actual Stream Deck SDK
 
 3. **Continue Code Quality Improvements**

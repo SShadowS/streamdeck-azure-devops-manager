@@ -4,6 +4,7 @@ import { azureDevOpsClient } from './services/azureDevOpsClient';
 import { settingsManager } from './services/settingsManager';
 import './actions/pipelineMonitor'; // Import the PipelineMonitor action for registration
 import './actions/pullRequestTracker'; // Import the PullRequestTracker action for registration
+import './actions/pipelineTrigger'; // Import the PipelineTrigger action for registration
 
 // Export services for use by actions
 export { azureDevOpsClient, settingsManager };

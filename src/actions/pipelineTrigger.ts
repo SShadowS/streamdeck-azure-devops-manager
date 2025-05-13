@@ -1,22 +1,20 @@
 /**
- * Pipeline Monitor Action
+ * Pipeline Trigger Action
  * 
- * This action displays the status of an Azure DevOps pipeline on a Stream Deck button.
- * It polls for status updates and provides visual feedback through button appearance.
+ * This action allows users to trigger an Azure DevOps pipeline run with a button press.
+ * Users can configure which pipeline to trigger and additional options.
  * 
  * Features:
- * - Real-time pipeline status monitoring
- * - Visual indicators for build status (succeeded, failed, in progress)
- * - Option to open pipeline details on button press
- * - Configurable refresh interval using global settings
- * - Property Inspector for selecting projects and pipelines
+ * - One-click pipeline triggering
+ * - Optional confirmation before trigger
+ * - Optional automatic opening of build page after trigger
+ * - Support for specifying a branch to build
  */
 
 import { 
   action, 
   SingletonAction, 
   WillAppearEvent, 
-  WillDisappearEvent, 
   KeyDownEvent, 
   JsonObject, 
   DidReceiveSettingsEvent,
@@ -28,28 +26,27 @@ import { promisify } from 'util';
 import { iconManager, PipelineIcon } from '../services/iconManager';
 import { azureDevOpsClient } from '../services/azureDevOpsClient';
 import { settingsManager } from '../services/settingsManager';
-import { IPipelineMonitorSettings } from '../types/settings';
-import { BuildResult, BuildStatus, IBuild } from '../types/ado';
+import { IPipelineTriggerSettings } from '../types/settings';
+import { IBuild } from '../types/ado';
 
 /**
- * Action to monitor the status of a specific Azure DevOps pipeline
+ * Action to trigger a specific Azure DevOps pipeline
  */
 @action({ 
-  UUID: 'com.sshadows.azure-devops-manager.pipeline-monitor'
+  UUID: 'com.sshadows.azure-devops-manager.pipeline-trigger'
 })
-export class PipelineMonitor extends SingletonAction<JsonObject> {
-  private refreshInterval = 60; // Default to 60 seconds
-  private refreshTimerId: NodeJS.Timeout | null = null;
-  private lastStatus: string | null = null;
+export class PipelineTrigger extends SingletonAction<JsonObject> {
   private isConnected = false;
+  private queuedBuild: IBuild | null = null;
+  private isTriggering = false;
 
   /**
    * Called when the action appears on the Stream Deck
    */
   public override async onWillAppear(ev: WillAppearEvent<JsonObject>): Promise<void> {
     const context = ev.action.id;
-    const settings = ev.payload.settings as IPipelineMonitorSettings;
-    streamDeck.logger.info(`Pipeline Monitor will appear: ${context}`);
+    const settings = ev.payload.settings as IPipelineTriggerSettings;
+    streamDeck.logger.info(`Pipeline Trigger will appear: ${context}`);
     
     // Initialize settings if needed
     if (!settings?.projectId || !settings?.pipelineId) {
@@ -57,10 +54,6 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
       await this.showConfigurationRequired(context);
       return;
     }
-    
-    // Get refresh interval from global settings
-    const globalSettings = settingsManager.getGlobalSettings();
-    this.refreshInterval = globalSettings.refreshInterval;
     
     // Check if we have valid auth settings
     this.isConnected = settingsManager.hasValidAuthSettings();
@@ -70,19 +63,8 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
       return;
     }
     
-    // Update status immediately
-    await this.updatePipelineStatus(context, settings);
-    
-    // Set up regular polling
-    this.startPolling(context, settings);
-  }
-
-  /**
-   * Called when the action disappears from the Stream Deck
-   */
-  public override async onWillDisappear(_ev: WillDisappearEvent): Promise<void> {
-    // Stop polling when the action disappears
-    this.stopPolling();
+    // Set the default button appearance
+    await this.showReadyState(context, settings);
   }
 
   /**
@@ -90,8 +72,8 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
    */
   public override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<JsonObject>): Promise<void> {
     const context = ev.action.id;
-    const settings = ev.payload.settings as IPipelineMonitorSettings;
-    streamDeck.logger.info(`Pipeline Monitor settings changed for ${context}`);
+    const settings = ev.payload.settings as IPipelineTriggerSettings;
+    streamDeck.logger.info(`Pipeline Trigger settings changed for ${context}`);
 
     // Check if we have valid connection and settings
     this.isConnected = settingsManager.hasValidAuthSettings();
@@ -106,11 +88,8 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
       return;
     }
 
-    // Update status immediately with new settings
-    await this.updatePipelineStatus(context, settings);
-    
-    // Restart polling with new settings
-    this.startPolling(context, settings);
+    // Update the button appearance to ready state
+    await this.showReadyState(context, settings);
   }
 
   /**
@@ -120,7 +99,7 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
     const context = ev.action.id;
     const payload = ev.payload;
 
-    streamDeck.logger.info(`Pipeline Monitor received command: ${payload.command}`);
+    streamDeck.logger.info(`Pipeline Trigger received command: ${payload.command}`);
 
     try {
       // Handle different commands from the Property Inspector
@@ -233,7 +212,7 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
     organizationUrl: string,
     personalAccessToken: string
   ): Promise<void> {
-    streamDeck.logger.info('⭐ TEST CONNECTION REQUEST RECEIVED in PipelineMonitor.handleTestConnectionCommand');
+    streamDeck.logger.info('⭐ TEST CONNECTION REQUEST RECEIVED in PipelineTrigger.handleTestConnectionCommand');
     streamDeck.logger.info(`⭐ Testing connection to: ${organizationUrl} (PAT length: ${personalAccessToken ? personalAccessToken.length : 0})`);
     
     try {
@@ -319,189 +298,170 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
    */
   public override async onKeyDown(ev: KeyDownEvent<JsonObject>): Promise<void> {
     const context = ev.action.id;
-    const settings = ev.payload.settings as IPipelineMonitorSettings;
-    streamDeck.logger.info(`Pipeline Monitor key down: ${context}`);
+    const settings = ev.payload.settings as IPipelineTriggerSettings;
+    streamDeck.logger.info(`Pipeline Trigger key down: ${context}`);
     
     // If not configured or not connected, do nothing
     if (!settings?.projectId || !settings?.pipelineId || !this.isConnected) {
       return;
     }
     
+    // If already triggering, show message and do nothing
+    if (this.isTriggering) {
+      streamDeck.logger.info('Already triggering a pipeline, ignoring button press');
+      return;
+    }
+    
+    // If confirmation is enabled, show "Press again to confirm" state
+    if (settings.showConfirmation && !this.queuedBuild) {
+      await this.showConfirmState(context);
+      
+      // Set a timeout to reset the state after 5 seconds
+      setTimeout(async () => {
+        // Only reset if we didn't queue a build
+        if (!this.queuedBuild && !this.isTriggering) {
+          await this.showReadyState(context, settings);
+        }
+      }, 5000);
+      
+      return;
+    }
+    
+    // Queue the pipeline run
+    await this.triggerPipeline(context, settings);
+  }
+  
+  /**
+   * Trigger the pipeline run
+   */
+  private async triggerPipeline(context: string, settings: IPipelineTriggerSettings): Promise<void> {
+    this.isTriggering = true;
+    
     try {
-      // Get the URL of the latest pipeline run
-      const latestRunUrl = await azureDevOpsClient.getLatestPipelineRunUrl(
+      // Show triggering state
+      await this.showTriggeringState(context);
+      
+      // Queue the pipeline run
+      streamDeck.logger.info(`Queueing pipeline run for ${settings.pipelineId} in project ${settings.projectId}`);
+      const build = await azureDevOpsClient.queuePipelineRun(
         settings.projectId,
-        settings.pipelineId
+        settings.pipelineId,
+        settings.branch
       );
       
-      // If we have a URL, open it in the browser
-      if (latestRunUrl) {
-        streamDeck.logger.info(`Opening pipeline run URL: ${latestRunUrl}`);
-        await this.openUrl(latestRunUrl);
-      } else {
-        // If no runs exist, update the status and show a message
-        streamDeck.logger.info(`No runs found for pipeline ${settings.pipelineId}`);
-        await this.showNoBuild(context, settings.pipelineId);
-        
-        // Fallback: Try to construct a URL to the pipeline definition page
-        const organization = azureDevOpsClient.getOrganizationName();
-        const definitionUrl = `https://dev.azure.com/${organization}/${settings.projectId}/_build?definitionId=${settings.pipelineId}`;
-        streamDeck.logger.info(`Opening pipeline definition URL: ${definitionUrl}`);
-        await this.openUrl(definitionUrl);
+      // Save the queued build
+      this.queuedBuild = build;
+      
+      // Show success state
+      await this.showSuccessState(context);
+      
+      // If openAfterTrigger is enabled, open the build in browser
+      if (settings.openAfterTrigger && build.url) {
+        streamDeck.logger.info(`Opening build URL: ${build.url}`);
+        await this.openUrl(build.url);
       }
+      
+      // Reset state after 3 seconds
+      setTimeout(async () => {
+        this.queuedBuild = null;
+        this.isTriggering = false;
+        await this.showReadyState(context, settings);
+      }, 3000);
     } catch (error) {
-      streamDeck.logger.error(`Error opening pipeline URL: ${error}`);
-      // Refresh the status to show any error state
-      await this.updatePipelineStatus(context, settings);
+      streamDeck.logger.error(`Error triggering pipeline: ${error}`);
+      
+      // Show error state
+      await this.showErrorState(context);
+      
+      // Reset state after 3 seconds
+      setTimeout(async () => {
+        this.queuedBuild = null;
+        this.isTriggering = false;
+        await this.showReadyState(context, settings);
+      }, 3000);
     }
   }
-
-  /**
-   * Start polling for pipeline status updates
-   */
-  private startPolling(context: string, settings: IPipelineMonitorSettings): void {
-    // Clear any existing timer
-    this.stopPolling();
-    
-    // Set up a new timer
-    this.refreshTimerId = setInterval(async () => {
-      await this.updatePipelineStatus(context, settings);
-    }, this.refreshInterval * 1000);
-    
-    streamDeck.logger.info(`Started polling for pipeline ${settings.pipelineId} every ${this.refreshInterval} seconds`);
-  }
-
-  /**
-   * Stop polling for updates
-   */
-  private stopPolling(): void {
-    if (this.refreshTimerId) {
-      clearInterval(this.refreshTimerId);
-      this.refreshTimerId = null;
-      streamDeck.logger.info('Stopped polling for pipeline status');
-    }
-  }
-
-  /**
-   * Update the pipeline status and the button appearance
-   */
-  private async updatePipelineStatus(context: string, settings: IPipelineMonitorSettings): Promise<void> {
-    try {
-      // Skip if no pipeline configured
-      if (!settings.projectId || !settings.pipelineId) {
-        return;
-      }
-      
-      // Fetch the pipeline status
-      const build = await azureDevOpsClient.getPipelineStatus(
-        settings.projectId,
-        settings.pipelineId
-      );
-      
-      if (!build) {
-        // No builds found
-        await this.showNoBuild(context, settings.pipelineId);
-        return;
-      }
-      
-      // Update the button appearance based on the build status
-      await this.updateButtonAppearance(context, build);
-      
-      // If notifications are enabled and status changed, send notification
-      if (settings.showNotifications && this.lastStatus !== build.status) {
-        // In the future, we could integrate with the Stream Deck notification system
-        streamDeck.logger.info(`Pipeline ${settings.pipelineId} status changed: ${this.lastStatus} -> ${build.status}`);
-      }
-      
-      // Update last known status
-      this.lastStatus = build.status;
-    } catch (error) {
-      streamDeck.logger.error(`Error updating pipeline status for ${context}:`, error);
-      await this.showError(context);
-    }
-  }
-
-  /**
-   * Update the button appearance based on build status
-   */
-  private async updateButtonAppearance(context: string, build: IBuild): Promise<void> {
-    let title = 'Pipeline';
-    let state: string | undefined;
-    let icon: PipelineIcon | undefined;
-    
-    // Set state, title, and icon based on build status
-    if (build.status === BuildStatus.InProgress) {
-      title = 'Running';
-      state = 'running';
-      icon = PipelineIcon.Running;
-    } else if (build.status === BuildStatus.Completed) {
-      if (build.result === BuildResult.Succeeded) {
-        title = 'Success';
-        state = 'success';
-        icon = PipelineIcon.Success;
-      } else if (build.result === BuildResult.PartiallySucceeded) {
-        title = 'Partial';
-        state = 'partial';
-        icon = PipelineIcon.Partial;
-      } else if (build.result === BuildResult.Failed) {
-        title = 'Failed';
-        state = 'failed';
-        icon = PipelineIcon.Failed;
-      } else if (build.result === BuildResult.Canceled) {
-        title = 'Canceled';
-        state = 'canceled';
-        icon = PipelineIcon.Canceled;
-      } else {
-        title = 'Unknown';
-        state = 'unknown';
-        icon = PipelineIcon.Unknown;
-      }
-    } else if (build.status === BuildStatus.NotStarted) {
-      title = 'Not Started';
-      state = 'notStarted';
-      icon = PipelineIcon.NotStarted;
-    } else {
-      title = build.status || 'Unknown';
-      state = 'unknown';
-      icon = PipelineIcon.Unknown;
-    }
-    
-    // Update the button
-    await this.updateButton(context, title, state, icon);
-  }
-
+  
   /**
    * Show configuration required state
    */
   private async showConfigurationRequired(context: string): Promise<void> {
-    await this.updateButton(context, 'Setup\nRequired', 'config', PipelineIcon.Config);
+    await this.updateButton(context, 'Setup\nRequired', PipelineIcon.Config);
   }
 
   /**
    * Show disconnected state
    */
   private async showDisconnected(context: string): Promise<void> {
-    await this.updateButton(context, 'ADO\nDisconnected', 'disconnected', PipelineIcon.Disconnected);
+    await this.updateButton(context, 'ADO\nDisconnected', PipelineIcon.Disconnected);
   }
-
+  
   /**
-   * Show no build state
+   * Show ready state (default state)
    */
-  private async showNoBuild(context: string, pipelineId: number): Promise<void> {
-    await this.updateButton(context, `Pipeline\n#${pipelineId}\nNo Builds`, 'nobuild', PipelineIcon.NoBuild);
+  private async showReadyState(context: string, settings: IPipelineTriggerSettings): Promise<void> {
+    // Get a short name for the pipeline
+    let pipelineName = `Pipeline\n#${settings.pipelineId}`;
+    
+    try {
+      // Try to fetch the pipeline details to get the name
+      const pipelines = await azureDevOpsClient.getPipelineDefinitions(settings.projectId);
+      const pipeline = pipelines.find(p => p.id === settings.pipelineId);
+      if (pipeline) {
+        // Use the pipeline name if found
+        pipelineName = pipeline.name;
+      }
+    } catch (error) {
+      streamDeck.logger.error(`Error fetching pipeline details: ${error}`);
+    }
+    
+    // Show the trigger button with the pipeline name
+    let title = `Run\n${pipelineName}`;
+    
+    // If branch is specified, include it in the title
+    if (settings.branch) {
+      // Ensure the title doesn't get too long
+      const shortBranch = settings.branch.length > 10 
+        ? settings.branch.substring(0, 8) + '...' 
+        : settings.branch;
+      title = `Run\n${pipelineName}\n${shortBranch}`;
+    }
+    
+    await this.updateButton(context, title, PipelineIcon.Running);
   }
-
+  
+  /**
+   * Show confirm state
+   */
+  private async showConfirmState(context: string): Promise<void> {
+    await this.updateButton(context, 'Press Again\nto Confirm', PipelineIcon.Unknown);
+  }
+  
+  /**
+   * Show triggering state
+   */
+  private async showTriggeringState(context: string): Promise<void> {
+    await this.updateButton(context, 'Triggering...', PipelineIcon.Running);
+  }
+  
+  /**
+   * Show success state
+   */
+  private async showSuccessState(context: string): Promise<void> {
+    await this.updateButton(context, 'Pipeline\nTriggered!', PipelineIcon.Success);
+  }
+  
   /**
    * Show error state
    */
-  private async showError(context: string): Promise<void> {
-    await this.updateButton(context, 'Error', 'error', PipelineIcon.Error);
+  private async showErrorState(context: string): Promise<void> {
+    await this.updateButton(context, 'Error\nTriggering', PipelineIcon.Error);
   }
 
   /**
-   * Update the button title and state
+   * Update the button title and icon
    */
-  private async updateButton(context: string, title: string, state?: string, icon?: PipelineIcon): Promise<void> {
+  private async updateButton(context: string, title: string, icon: PipelineIcon): Promise<void> {
     try {
       // Find the matching action by context ID
       const action = Array.from(this.actions).find(a => a.id === context);
@@ -513,13 +473,7 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
       // Update the button title
       await action.setTitle(title);
       
-      // Update the button state if provided
-      if (state && 'setState' in action) {
-        // setState is only available on KeyAction, not DialAction
-        await action.setState(parseInt(state) || 0);
-      }
-      
-      // Set custom icon if provided
+      // Set the icon if provided
       if (icon && 'setImage' in action) {
         const iconUrl = iconManager.getPipelineIcon(icon);
         if (iconUrl) {

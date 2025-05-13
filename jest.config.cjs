@@ -1,4 +1,8 @@
-export default {
+/**
+ * Jest configuration file
+ * @type {import('jest').Config}
+ */
+module.exports = {
   preset: 'ts-jest/presets/js-with-ts-esm',
   testEnvironment: 'node',
   transform: {
@@ -22,6 +26,7 @@ export default {
     'src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/__tests__/**',
+    '!src/testing/**',
   ],
   coverageThreshold: {
     global: {

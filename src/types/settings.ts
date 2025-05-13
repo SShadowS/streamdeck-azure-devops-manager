@@ -125,6 +125,36 @@ export interface IPullRequestMonitorSettings extends IJsonCompatible {
 }
 
 /**
+ * Pipeline trigger action settings
+ */
+export interface IPipelineTriggerSettings extends IJsonCompatible {
+  /**
+   * Project ID this action is triggering
+   */
+  projectId: string;
+  
+  /**
+   * Pipeline ID this action is triggering
+   */
+  pipelineId: number;
+  
+  /**
+   * Optional branch to build (defaults to the default branch)
+   */
+  branch?: string;
+  
+  /**
+   * Whether to show confirmation before triggering
+   */
+  showConfirmation: boolean;
+  
+  /**
+   * Whether to open the build in browser after triggering
+   */
+  openAfterTrigger: boolean;
+}
+
+/**
  * Default settings values
  */
 export const defaultGlobalSettings: IGlobalSettings = {
@@ -141,6 +171,14 @@ export const defaultPipelineMonitorSettings: IPipelineMonitorSettings = {
   pipelineId: 0,
   showStatus: true,
   showNotifications: true
+};
+
+export const defaultPipelineTriggerSettings: IPipelineTriggerSettings = {
+  projectId: '',
+  pipelineId: 0,
+  branch: undefined,
+  showConfirmation: true,
+  openAfterTrigger: true
 };
 
 export const defaultPullRequestMonitorSettings: IPullRequestMonitorSettings = {

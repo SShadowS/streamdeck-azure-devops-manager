@@ -20,18 +20,21 @@ type MockAction = {
   setSettings: jest.Mock;
 };
 
-// Mock console methods to reduce noise in test output
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
+// Mock console methods to reduce noise in test output and spy on them
+let consoleLogSpy: jest.SpyInstance;
+let consoleErrorSpy: jest.SpyInstance;
+let consoleWarnSpy: jest.SpyInstance;
 
 beforeAll(() => {
-  console.log = jest.fn();
-  console.error = jest.fn();
+  consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterAll(() => {
-  console.log = originalConsoleLog;
-  console.error = originalConsoleError;
+  consoleLogSpy.mockRestore();
+  consoleErrorSpy.mockRestore();
+  consoleWarnSpy.mockRestore();
 });
 
 // Mock the Stream Deck SDK
@@ -117,7 +120,7 @@ describe('SettingsManager - Enhanced Tests', () => {
       await settingsManager.initialize();
       
       // Should log the error
-      expect(console.error).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
       
       // Should still be initialized with default settings
       expect(settingsManager.getGlobalSettings()).toBeDefined();
@@ -139,7 +142,7 @@ describe('SettingsManager - Enhanced Tests', () => {
       })).rejects.toThrow('Failed to save settings');
       
       // Should log the error
-      expect(console.error).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
     });
     
     it('should handle errors when fetching projects from Azure DevOps', async () => {
@@ -154,7 +157,7 @@ describe('SettingsManager - Enhanced Tests', () => {
       await expect(settingsManager.fetchAndAddProjects()).rejects.toThrow('Connection failed');
       
       // Should log the error
-      expect(console.error).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
     });
     
     it('should handle invalid response formats when fetching projects', async () => {
@@ -170,7 +173,7 @@ describe('SettingsManager - Enhanced Tests', () => {
       await expect(settingsManager.fetchAndAddProjects()).rejects.toThrow('Invalid response format');
       
       // Should log the error
-      expect(console.error).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
     });
     
     it('should handle errors when loading action settings', async () => {
@@ -189,8 +192,9 @@ describe('SettingsManager - Enhanced Tests', () => {
       );
       
       expect(settings).toBeDefined();
-      expect(settings.projectId).toBeUndefined();
-      expect(console.error).toHaveBeenCalled();
+      // Default projectId is '', not undefined
+      expect(settings.projectId).toBe(''); 
+      expect(consoleErrorSpy).toHaveBeenCalled();
     });
     
     it('should handle errors when saving action settings', async () => {
@@ -214,7 +218,7 @@ describe('SettingsManager - Enhanced Tests', () => {
         }
       )).rejects.toThrow('Failed to save action settings');
       
-      expect(console.error).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
     });
   });
   
@@ -232,7 +236,7 @@ describe('SettingsManager - Enhanced Tests', () => {
       const projects = await settingsManager.fetchAndAddProjects();
       
       expect(projects).toEqual(mockGlobalSettings.projects);
-      expect(console.log).toHaveBeenCalledWith('No new projects found to add');
+      expect(consoleLogSpy).toHaveBeenCalledWith('No new projects found to add');
     });
     
     it('should skip projects with missing required properties', async () => {
@@ -258,7 +262,7 @@ describe('SettingsManager - Enhanced Tests', () => {
       expect(projects[1].name).toBe('Valid Project');
       
       // Should log warnings about skipped projects
-      expect(console.warn).toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalled();
     });
     
     it('should enforce minimum refresh interval', async () => {
@@ -269,7 +273,7 @@ describe('SettingsManager - Enhanced Tests', () => {
       
       // Should enforce minimum of 10 seconds
       expect(settingsManager.getGlobalSettings().refreshInterval).toBe(10);
-      expect(console.warn).toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalled();
     });
     
     it('should initialize even with no previous settings', async () => {
@@ -504,8 +508,9 @@ describe('SettingsManager - Enhanced Tests', () => {
       
       // Should have merged with defaults
       expect(settings.projectId).toBe('test-project');
-      expect(settings.pipelineId).toBeUndefined(); // Default
-      expect(settings.showNotifications).toBeFalsy(); // Default
+      // Default pipelineId is 0, not undefined
+      expect(settings.pipelineId).toBe(0); 
+      expect(settings.showNotifications).toBeTruthy(); // Default is true, and partialSettings doesn't override it
     });
   });
   
