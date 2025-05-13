@@ -1,0 +1,91 @@
+{
+	"Name": "Azure DevOps Manager",
+	"Version": "0.1.0.0",
+	"Author": "SShadowS",
+	"Actions": [
+		{
+			"Name": "Pipeline Monitor",
+			"UUID": "com.sshadows.azure-devops-manager.pipeline-monitor",
+			"Icon": "imgs/actions/pipeline-monitor/icon",
+			"Tooltip": "Monitors the status of an Azure DevOps pipeline.",
+			"PropertyInspectorPath": "ui/pipelineMonitor.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/pipeline-monitor/key",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/pipeline-monitor/key-running",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/pipeline-monitor/key-success",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/pipeline-monitor/key-failed",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/pipeline-monitor/key-error",
+					"TitleAlignment": "middle"
+				}
+			]
+		},
+		{
+			"Name": "Pull Request Tracker",
+			"UUID": "com.sshadows.azure-devops-manager.pr-tracker",
+			"Icon": "imgs/actions/pipeline-monitor/icon",
+			"Tooltip": "Tracks and displays Azure DevOps Pull Requests.",
+			"PropertyInspectorPath": "ui/pullRequestTracker.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/pipeline-monitor/key",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/pipeline-monitor/key-active",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/pipeline-monitor/key-none",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/pipeline-monitor/key-error",
+					"TitleAlignment": "middle"
+				}
+			]
+		}
+	],
+	"Category": "Azure DevOps Manager",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Manage and monitor your Azure DevOps Pipeline and PRs",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 2,
+	"Software": {
+		"MinimumVersion": "6.4"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "com.sshadows.azure-devops-manager"
+}

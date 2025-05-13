@@ -1,0 +1,17 @@
+# Node.js
+node_modules/
+
+# Stream Deck files
+*.sdPlugin/bin
+*.sdPlugin/logs
+
+# Environment variables and secrets
+.env*
+!.env.*.example
+
+# Compiled test files
+dist-test/
+
+
+coverage/
+logs/

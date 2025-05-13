@@ -1,0 +1,5 @@
+# Ignore compiled files
+com.sshadows.azure-devops-manager.sdPlugin/bin/
+com.sshadows.azure-devops-manager.sdPlugin/**/*.js
+coverage/
+dist/
