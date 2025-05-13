@@ -2,9 +2,35 @@
 
 ## Current Work Focus
 
-The Azure DevOps Manager project has moved from the initial setup phase to implementing core features. The current focus is on developing and testing the Pipeline Monitor functionality, with an emphasis on real-time status updates and proper event handling with the Stream Deck SDK.
+The Azure DevOps Manager project has moved from the initial setup phase to implementing core features. The current focus has been on enhancing both Pipeline Monitor and Pull Request Tracker functionality, with an emphasis on real-time status updates, interactive features, proper event handling with the Stream Deck SDK, and creating comprehensive user documentation.
 
 ## Recent Changes
+
+- **Created Comprehensive User Documentation**
+  - ✅ Established a structured documentation architecture in a dedicated `docs/` directory
+  - ✅ Created a main overview page as `README.md` in the root directory (originally in docs/ but moved to root)
+  - ✅ Updated all documentation links in README.md to point to the correct files in the docs/ directory
+  - ✅ Developed a detailed installation and setup guide with PAT creation instructions
+  - ✅ Created dedicated guides for each action type:
+    - Pipeline Monitor documentation with configuration, button states, and troubleshooting
+    - Pipeline Trigger documentation with configuration, advanced options, and usage tips
+    - Pull Request Tracker documentation with project/repository selection guidance
+  - ✅ Added a comprehensive troubleshooting guide organized by issue type
+  - ✅ Created a FAQ section addressing common user questions
+  - ✅ Included visual references to button states using existing icons
+  - ✅ Implemented cross-references between documents for easier navigation
+  - ✅ Used consistent formatting and structure across all documentation files
+  - ✅ Documented all configuration options, button states, and user interactions
+  - ✅ Updated memory-bank with documentation details in progress.md
+
+- **Enhanced Pull Request Tracker Action**
+  - ✅ Improved the `onKeyDown` functionality in `PullRequestTracker` to open relevant PR lists in a browser
+  - ✅ Added support for repository-specific PR links when a specific repository is selected
+  - ✅ Implemented fallback to project-level PR views when repository details are unavailable
+  - ✅ Added URL generation method to `AzureDevOpsClient` to encapsulate PR list URL creation logic
+  - ✅ Enhanced error handling in the PR Tracker with visual feedback when URL opening fails
+  - ✅ Updated tests to properly validate the new functionality with comprehensive coverage
+  - ✅ Improved type safety for URL parameters when generating PR list links
 
 - **Removed Unused GlobalSettings Files**
   - ✅ Removed `src/actions/globalSettings.ts` action class
@@ -114,6 +140,20 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
   - ✅ Improved tests for asynchronous operations with better Promise handling
   - ✅ Increased overall test stability by minimizing inter-test dependencies
 
+- **Resolved Workspace Linting and Quality Issues**
+  - ✅ Fixed conditional `expect` calls in test files by restructuring tests to use proper Jest patterns
+  - ✅ Replaced `any` type annotations with specific typed interfaces in test files
+  - ✅ Fixed unused variables and parameters by removing them or prefixing with underscores
+  - ✅ Replaced all `console.log` and `console.error` calls in production code with `streamDeck.logger` methods
+  - ✅ Added appropriate ESLint disable comments for necessary console statements in test files
+  - ✅ Fixed markdown formatting issues across documentation:
+    - Added missing top-level headings
+    - Corrected list marker spacing for consistency
+    - Ensured proper blank lines around headings and lists
+    - Removed trailing spaces
+  - ✅ All ESLint errors and warnings resolved
+  - ✅ All markdownlint warnings addressed
+
 ## Next Steps
 
 1. ✅ **Complete Pipeline Monitor Action**
@@ -121,30 +161,45 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
    - ✅ Implement status updates with proper event handling
    - ✅ Design status visualization on Stream Deck buttons
    - ✅ Implement Pipeline property selection UI (Property Inspector)
-   - ⏭️ Add custom icons for different pipeline states
-   
-2. **Improve Test Coverage for Actions**
+   - ✅ Add custom icons for different pipeline states
+
+2. ✅ **Complete Pull Request Tracker Action**
+   - ✅ Develop action for tracking PR status
+   - ✅ Design visualization for PR counts and statuses
+   - ✅ Implement PR list opening functionality on button press
+   - ✅ Ensure proper error handling and visual feedback
+
+3. ✅ **Create User Documentation**
+   - ✅ Develop setup guide for first-time users
+   - ✅ Create usage instructions for each action type
+   - ✅ Add troubleshooting section for common issues
+   - ✅ Include visual examples of different button states and their meanings
+   - ✅ Create FAQ to address common questions
+
+4. **Improve Test Coverage for Actions**
    - ✅ Create tests for PipelineMonitor action (now has ~78% coverage)
+   - ✅ Update tests for PullRequestTracker action with enhanced functionality
    - Create tests for entry point (plugin.ts)
    - ✅ Address failing tests in enhanced test suites
    - Consider implementing E2E tests with actual Stream Deck SDK
 
-3. **Continue Code Quality Improvements**
+5. **Consider Advanced PR Features**
+   - Implement PR approval/rejection directly from Stream Deck buttons
+   - Add detailed PR information display (reviewer status, build status)
+   - Create PR creation shortcuts
+   - Implement PR filtering by author or reviewer
+
+6. **Continue Code Quality Improvements**
    - ✅ Disabled console warnings during development (will need to be re-enabled before production)
    - Consider adding TypeScript strict mode for better type safety
    - Add automated linting as part of CI/CD if applicable
    - Re-enable `no-console` rule before production release
 
-4. **Pull Request Tracker Action**
-   - Develop action for tracking PR status
-   - Design visualization for PR counts and statuses
-   - Implement Property Inspector for configuration
-
-5. **Settings Management**
-   - ✅ Implemented Azure DevOps connection settings (Organization URL and PAT) within action UI
-   - ✅ Added ability to edit connection settings after initial setup
-   - ✅ Implemented secure storage for connection credentials using Stream Deck SDK
-   - ✅ Develop UI for organization and project selection
+7. **Enhance User Documentation**
+   - Consider adding screenshots of the Property Inspector UI for each action
+   - Potentially add diagrams for more complex workflows
+   - Create a simplified "Quick Start" guide for new users
+   - Add version-specific documentation as new features are implemented
 
 ## Active Decisions & Considerations
 
@@ -158,10 +213,11 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
 
 ### Visual Design
 
-- **Decision Needed**: Status representation approach
-  - How to effectively communicate pipeline/PR status in limited button space
-  - Need to design icons for various states (running, success, failure, etc.)
-  - Consider accessibility aspects (color blindness, etc.)
+- **Decision Made**: Icon-based status representation
+  - ✅ Created custom icons for different states (success, failed, running, etc.)
+  - ✅ Implemented icon loading and caching through IconManager
+  - ✅ Used consistent visual language across different action types
+  - ✅ Ensured clear visual differentiation between states
 
 ### Error Handling
 
@@ -172,6 +228,24 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
   - ✅ Graceful degradation with clear visual indicators of connectivity status
   - ✅ Enhanced connection testing with detailed logging and visual feedback
   - ✅ Added "Testing connection..." indicator with spinner in the UI
+
+### URL Generation
+
+- **Decision Made**: Service-based URL construction
+  - ✅ Added URL generation methods to AzureDevOpsClient service
+  - ✅ Used consistent patterns for URL construction
+  - ✅ Implemented proper error handling for URL opening operations
+  - ✅ Created type-safe parameter interfaces for URL construction
+
+### Documentation Structure
+
+- **Decision Made**: Hierarchical markdown-based documentation
+  - ✅ Created a main README.md as the entry point in the root directory
+  - ✅ Organized action documentation in the docs/actions/ directory
+  - ✅ Separated installation, troubleshooting, and FAQ into distinct files in the docs/ directory
+  - ✅ Used cross-references between documents for better navigation
+  - ✅ Updated all links in the README.md to point to the correct locations
+  - ✅ Maintained consistent structure and formatting across all files
 
 ## Important Patterns and Preferences
 
@@ -203,6 +277,17 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
   - Structure messages with a `command` property and relevant data
   - Handle errors and provide feedback in the UI
 
+### Documentation Style
+
+- Use Markdown for all documentation
+- Organize content hierarchically with clear headings
+- Include practical examples and visual references
+- Provide cross-references between related documents
+- Use tables for presenting state information and configuration options
+- Keep a consistent structure across similar documentation (e.g., action guides)
+- Break down complex instructions into numbered steps
+- Use bold text for UI elements and configuration options
+
 ### Development Methodology
 
 - Use Test-Driven Development (TDD) approach
@@ -222,12 +307,15 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
 ## Learnings and Insights
 
 ### Property Inspector UI Development
+
 - Stream Deck Property Inspector uses WebSocket for communicating with the plugin
 - Registration happens through the `connectElgatoStreamDeckSocket` function
 - The Property Inspector is loaded in an iframe within the Stream Deck software
 - CSS styling should account for the dark theme of Stream Deck
 - Error handling is important for graceful degradation
 - Property Inspectors can request different types of data from the plugin
+
+### SDK Architecture Insights
 
 - The Elgato Stream Deck SDK provides a clean event-driven architecture
 - TypeScript decorators simplify action registration
@@ -239,3 +327,22 @@ The Azure DevOps Manager project has moved from the initial setup phase to imple
 - Proper cleanup of timers and intervals is essential in onWillDisappear handlers
 - Visual status indicators need to be clear and concise on small Stream Deck buttons
 - Unit testing Stream Deck actions requires careful mocking of the SDK's interfaces
+
+### URL Generation Patterns
+
+- URL generation should be centralized in service classes for consistency
+- Typed parameter interfaces provide better maintainability and error prevention
+- Repository-specific vs. project-wide URLs need different parameter sets
+- Error handling for URL opening should have visual feedback for users
+- Browser opening implementation needs to be cross-platform (Windows, macOS, Linux)
+
+### Documentation Best Practices
+
+- User documentation should explain both how to configure an action and how to use it
+- Error states and troubleshooting guidance are essential for user experience
+- Cross-referencing between documents improves navigation and reduces duplication
+- Consistent structure across action documentation helps users learn similar patterns
+- FAQs should address common user questions before they need to be asked
+- Visual representation of button states is more effective than text descriptions alone
+- Installation guides should include prerequisites and post-installation configuration
+- Troubleshooting sections should be organized by symptoms rather than causes

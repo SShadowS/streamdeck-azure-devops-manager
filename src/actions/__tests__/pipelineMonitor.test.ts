@@ -10,8 +10,7 @@ import {
   WillDisappearEvent, 
   KeyDownEvent,
   DidReceiveSettingsEvent,
-  SendToPluginEvent,
-  SingletonAction // Import SingletonAction
+  SendToPluginEvent
 } from '@elgato/streamdeck';
 
 // Mock dependencies

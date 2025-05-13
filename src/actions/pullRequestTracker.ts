@@ -333,23 +333,34 @@ export class PullRequestTracker extends SingletonAction<JsonObject> {
     }
     
     try {
-      const organization = azureDevOpsClient.getOrganizationName();
-      let prListUrl = `https://dev.azure.com/${organization}/${settings.projectId}/_pulls?state=active`;
+      // Prepare the URL parameters
+      const urlParams: {
+        projectId: string;
+        organizationUrl: string;
+        repositoryId?: string;
+        repositoryName?: string;
+      } = {
+        projectId: settings.projectId,
+        organizationUrl: this.getOrganizationUrl(),
+        repositoryId: settings.repositoryId
+      };
       
+      // If a specific repository is selected (not "all"), get the repository name for the URL
       if (settings.repositoryId && settings.repositoryId !== 'all') {
-        // If a specific repository is selected, link to its PRs
-        // We need the repository name, not just ID, for the URL.
-        // For simplicity, we'll try to fetch it. If not found, link to project PRs.
         try {
           const repos = await azureDevOpsClient.getRepositories(settings.projectId);
           const repo = repos.find(r => r.id === settings.repositoryId);
           if (repo) {
-            prListUrl = `https://dev.azure.com/${organization}/${settings.projectId}/_git/${repo.name}/pullrequests?state=active`;
+            // Add repository name to URL params if found
+            urlParams.repositoryName = repo.name;
           }
         } catch (repoError) {
           streamDeck.logger.warn(`Could not fetch repository details for ${settings.repositoryId}, linking to project PRs. Error: ${repoError}`);
         }
       }
+      
+      // Generate the PR list URL using the AzureDevOpsClient service
+      const prListUrl = azureDevOpsClient.getPullRequestListUrl(urlParams);
       
       streamDeck.logger.info(`Opening PR list URL: ${prListUrl}`);
       await this.openUrl(prListUrl);
@@ -359,6 +370,15 @@ export class PullRequestTracker extends SingletonAction<JsonObject> {
       // Refresh the status to show any error state
       await this.updatePrStatus(context, settings);
     }
+  }
+  
+  /**
+   * Get the organization URL for generating links
+   */
+  private getOrganizationUrl(): string {
+    return azureDevOpsClient.getOrganizationName() 
+      ? `https://dev.azure.com/${azureDevOpsClient.getOrganizationName()}`
+      : '';
   }
 
   /**

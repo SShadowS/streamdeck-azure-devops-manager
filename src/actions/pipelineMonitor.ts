@@ -431,24 +431,24 @@ export class PipelineMonitor extends SingletonAction<JsonObject> {
     
     // Set state, title, and icon based on build status
     if (build.status === BuildStatus.InProgress) {
-      title = 'Running';
+      title = '⏳ Running';
       state = 'running';
       icon = PipelineIcon.Running;
     } else if (build.status === BuildStatus.Completed) {
       if (build.result === BuildResult.Succeeded) {
-        title = 'Success';
+        title = '✅ Success';
         state = 'success';
         icon = PipelineIcon.Success;
       } else if (build.result === BuildResult.PartiallySucceeded) {
-        title = 'Partial';
+        title = '⚠️ Partial';
         state = 'partial';
         icon = PipelineIcon.Partial;
       } else if (build.result === BuildResult.Failed) {
-        title = 'Failed';
+        title = '❌ Failed';
         state = 'failed';
         icon = PipelineIcon.Failed;
       } else if (build.result === BuildResult.Canceled) {
-        title = 'Canceled';
+        title = '🚫 Canceled';
         state = 'canceled';
         icon = PipelineIcon.Canceled;
       } else {

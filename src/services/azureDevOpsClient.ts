@@ -13,6 +13,7 @@
  * - Comprehensive error handling
  */
 
+import { streamDeck } from '@elgato/streamdeck';
 import {
   IAzureDevOpsAuthSettings,
   IBuild,
@@ -312,7 +313,7 @@ export class AzureDevOpsClient {
         attempt++;
         
         // Log the error
-        console.error(`API request error (attempt ${attempt}/${this.maxRetries}):`, error);
+        streamDeck.logger.error(`API request error (attempt ${attempt}/${this.maxRetries}):`, error);
         
         // Check if we should retry
         if (attempt >= this.maxRetries || !this.isRetryableError(error)) {
@@ -321,7 +322,7 @@ export class AzureDevOpsClient {
         
         // Calculate backoff time (exponential with jitter)
         const backoffMs = Math.min(1000 * Math.pow(2, attempt), 30000) * (0.75 + Math.random() * 0.5);
-        console.log(`Retrying in ${Math.round(backoffMs / 1000)} seconds...`);
+        streamDeck.logger.info(`Retrying in ${Math.round(backoffMs / 1000)} seconds...`);
         
         // Wait before retrying (skip in test mode)
         if (!this.testMode) {
@@ -336,7 +337,7 @@ export class AzureDevOpsClient {
    */
   public async getPipelineDefinitions(project: string): Promise<IPipelineDefinition[]> {
     try {
-      console.log(`Fetching pipeline definitions for project: ${project}`);
+      streamDeck.logger.info(`Fetching pipeline definitions for project: ${project}`);
       
       const response = await this.request<IPipelineDefinition[]>(
         `${project}/_apis/build/definitions`
@@ -344,7 +345,7 @@ export class AzureDevOpsClient {
       
       return response;
     } catch (error) {
-      console.error(`Error fetching pipeline definitions for ${project}:`, error);
+      streamDeck.logger.error(`Error fetching pipeline definitions for ${project}:`, error);
       throw error;
     }
   }
@@ -354,7 +355,7 @@ export class AzureDevOpsClient {
    */
   public async getPipelineStatus(project: string, pipelineId: number): Promise<IBuild | null> {
     try {
-      console.log(`Fetching status for pipeline ${pipelineId} in project ${project}`);
+      streamDeck.logger.info(`Fetching status for pipeline ${pipelineId} in project ${project}`);
       
       const response = await this.request<IBuild[]>(
         `${project}/_apis/build/builds?definitions=${pipelineId}&$top=1`
@@ -367,7 +368,7 @@ export class AzureDevOpsClient {
       
       return response[0];
     } catch (error) {
-      console.error(`Error fetching pipeline status for ${project} pipeline ${pipelineId}:`, error);
+      streamDeck.logger.error(`Error fetching pipeline status for ${project} pipeline ${pipelineId}:`, error);
       
       // If the pipeline doesn't exist or we get a 404, return null
       if (error instanceof ApiError && error.type === ApiErrorType.NotFound) {
@@ -383,7 +384,7 @@ export class AzureDevOpsClient {
    */
   public async getPullRequests(project: string, repository: string, status: PullRequestStatus = PullRequestStatus.Active): Promise<IPullRequest[]> {
     try {
-      console.log(`Fetching ${status} pull requests for ${repository} in ${project}`);
+      streamDeck.logger.info(`Fetching ${status} pull requests for ${repository} in ${project}`);
       
       const response = await this.request<{ value: IPullRequest[] }>(
         `${project}/_apis/git/repositories/${repository}/pullrequests?searchCriteria.status=${status}`
@@ -391,7 +392,7 @@ export class AzureDevOpsClient {
       
       return response.value;
     } catch (error) {
-      console.error(`Error fetching pull requests for ${project} repository ${repository}:`, error);
+      streamDeck.logger.error(`Error fetching pull requests for ${project} repository ${repository}:`, error);
       
       // If the repository doesn't exist or we get a 404, return empty array
       if (error instanceof ApiError && error.type === ApiErrorType.NotFound) {
@@ -408,9 +409,6 @@ export class AzureDevOpsClient {
   public async testConnection(): Promise<boolean> {
     try {
       this.ensureInitialized();
-      
-      // Import streamDeck here to avoid circular import
-      const { streamDeck } = await import('@elgato/streamdeck');
       
       streamDeck.logger.info('🔍 TEST CONNECTION: Testing connection to Azure DevOps API');
       streamDeck.logger.info(`🔍 TEST CONNECTION: Organization URL = ${this.authSettings?.organizationUrl}`);
@@ -462,24 +460,17 @@ export class AzureDevOpsClient {
         throw fetchError;
       }
     } catch (error) {
-      // Import streamDeck here in case previous import failed
-      try {
-        const { streamDeck } = await import('@elgato/streamdeck');
-        streamDeck.logger.error('❌ TEST CONNECTION: Connection test failed:', error);
+      streamDeck.logger.error('❌ TEST CONNECTION: Connection test failed:', error);
+      
+      // Add more diagnostic information
+      if (error instanceof Error) {
+        streamDeck.logger.error(`❌ TEST CONNECTION: Error type: ${error.name}, Message: ${error.message}`);
+        streamDeck.logger.error(`❌ TEST CONNECTION: Stack trace: ${error.stack || 'No stack trace available'}`);
         
-        // Add more diagnostic information
-        if (error instanceof Error) {
-          streamDeck.logger.error(`❌ TEST CONNECTION: Error type: ${error.name}, Message: ${error.message}`);
-          streamDeck.logger.error(`❌ TEST CONNECTION: Stack trace: ${error.stack || 'No stack trace available'}`);
-          
-          // Check for network errors
-          if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            streamDeck.logger.error('❌ TEST CONNECTION: This appears to be a network error. Check your network connection and URL.');
-          }
+        // Check for network errors
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          streamDeck.logger.error('❌ TEST CONNECTION: This appears to be a network error. Check your network connection and URL.');
         }
-      } catch {
-        // Fall back to console if we can't import streamDeck
-        console.error('❌ TEST CONNECTION: Connection test failed:', error);
       }
       
       return false;
@@ -494,13 +485,13 @@ export class AzureDevOpsClient {
    */
   public async getProjects(top: number = 100, skip: number = 0): Promise<{ count: number, value: unknown[] }> {
     try {
-      console.log(`Fetching projects (top=${top}, skip=${skip})`);
+      streamDeck.logger.info(`Fetching projects (top=${top}, skip=${skip})`);
       
       return await this.request<{ count: number, value: unknown[] }>(
         `_apis/projects?$top=${top}&$skip=${skip}&stateFilter=All`
       );
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      streamDeck.logger.error('Error fetching projects:', error);
       throw error;
     }
   }
@@ -512,7 +503,7 @@ export class AzureDevOpsClient {
    */
   public async getRepositories(project: string): Promise<IRepository[]> {
     try {
-      console.log(`Fetching repositories for project: ${project}`);
+      streamDeck.logger.info(`Fetching repositories for project: ${project}`);
       
       const response = await this.request<{ value: IRepository[] }>(
         `${project}/_apis/git/repositories`
@@ -520,7 +511,7 @@ export class AzureDevOpsClient {
       
       return response.value;
     } catch (error) {
-      console.error(`Error fetching repositories for ${project}:`, error);
+      streamDeck.logger.error(`Error fetching repositories for ${project}:`, error);
       
       // If the project doesn't exist or we get a 404, return empty array
       if (error instanceof ApiError && error.type === ApiErrorType.NotFound) {
@@ -539,7 +530,7 @@ export class AzureDevOpsClient {
    */
   public async getLatestPipelineRunUrl(project: string, pipelineId: number): Promise<string | null> {
     try {
-      console.log(`Fetching latest run URL for pipeline ${pipelineId} in project ${project}`);
+      streamDeck.logger.info(`Fetching latest run URL for pipeline ${pipelineId} in project ${project}`);
       
       // First get the latest build
       const latestBuild = await this.getPipelineStatus(project, pipelineId);
@@ -552,7 +543,7 @@ export class AzureDevOpsClient {
       // Return the URL from the build
       return latestBuild.url;
     } catch (error) {
-      console.error(`Error fetching latest run URL for ${project} pipeline ${pipelineId}:`, error);
+      streamDeck.logger.error(`Error fetching latest run URL for ${project} pipeline ${pipelineId}:`, error);
       
       // If the pipeline doesn't exist or we get a 404, return null
       if (error instanceof ApiError && error.type === ApiErrorType.NotFound) {
@@ -563,6 +554,30 @@ export class AzureDevOpsClient {
     }
   }
   
+  /**
+   * Get the URL for a pull request list view
+   * @param options Options for generating the URL
+   * @returns The URL for viewing pull requests in the browser
+   */
+  public getPullRequestListUrl(options: {
+    projectId: string;
+    repositoryId?: string;
+    organizationUrl: string;
+    repositoryName?: string;
+  }): string {
+    const { projectId, repositoryId, organizationUrl, repositoryName } = options;
+    
+    // Base URL for all PRs in a project
+    let url = `${organizationUrl}/${projectId}/_pulls?state=active`;
+    
+    // If a specific repository is specified and we have the name, use the git-specific URL
+    if (repositoryId && repositoryId !== 'all' && repositoryName) {
+      url = `${organizationUrl}/${projectId}/_git/${repositoryName}/pullrequests?state=active`;
+    }
+    
+    return url;
+  }
+
   /**
    * Queue a new pipeline run
    * @param project The name or ID of the project
@@ -576,7 +591,7 @@ export class AzureDevOpsClient {
     branch?: string
   ): Promise<IBuild> {
     try {
-      console.log(`Queueing pipeline run for ${pipelineId} in project ${project}`);
+      streamDeck.logger.info(`Queueing pipeline run for ${pipelineId} in project ${project}`);
       
       // Prepare the request body
       const body: Record<string, unknown> = {
@@ -602,7 +617,7 @@ export class AzureDevOpsClient {
       
       return response;
     } catch (error) {
-      console.error(`Error queueing pipeline run for ${project} pipeline ${pipelineId}:`, error);
+      streamDeck.logger.error(`Error queueing pipeline run for ${project} pipeline ${pipelineId}:`, error);
       throw error;
     }
   }

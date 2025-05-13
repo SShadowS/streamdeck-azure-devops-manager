@@ -20,10 +20,10 @@ streamDeck.logger.setLevel(LogLevel.TRACE);
 // Initialize settings manager (this will also initialize the Azure DevOps client if auth settings exist)
 settingsManager.initialize()
   .then(() => {
-    console.log('Settings manager initialized');
+    streamDeck.logger.info('Settings manager initialized');
   })
   .catch(error => {
-    console.error('Error initializing settings manager:', error);
+    streamDeck.logger.error('Error initializing settings manager:', error);
   });
 
 // Finally, connect to the Stream Deck.

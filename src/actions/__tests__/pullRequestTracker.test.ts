@@ -24,6 +24,7 @@ jest.mock('../../services/azureDevOpsClient', () => ({
     testConnection: jest.fn(),
     initialize: jest.fn(),
     getOrganizationName: jest.fn(),
+    getPullRequestListUrl: jest.fn(),
   },
 }));
 
@@ -390,8 +391,11 @@ describe('PullRequestTracker', () => {
       (settingsManager.hasValidAuthSettings as jest.Mock).mockReturnValue(true);
       (prTracker as unknown as { isConnected: boolean }).isConnected = true;
       (azureDevOpsClient.getOrganizationName as jest.Mock).mockReturnValue('testOrg');
-      // Mock the private openUrl method
-      const openUrlSpy = jest.spyOn(prTracker as any, 'openUrl' as any).mockResolvedValue(undefined); // Added 'as any' to method name
+      
+      // Mock the URL generation and openUrl methods
+      const expectedUrl = `https://dev.azure.com/testOrg/${sampleSettings.projectId}/_pulls?state=active`;
+      (azureDevOpsClient.getPullRequestListUrl as jest.Mock).mockReturnValue(expectedUrl);
+      const openUrlSpy = jest.spyOn(prTracker as unknown as { openUrl: (url: string) => Promise<void> }, 'openUrl').mockResolvedValue(undefined);
       
       // Create event with valid settings (all repositories)
       const ev = {
@@ -403,11 +407,15 @@ describe('PullRequestTracker', () => {
       
       await prTracker.onKeyDown(ev as unknown as KeyDownEvent<JsonObject>);
       
-      // Should attempt to open the project-level PR URL
-      expect(azureDevOpsClient.getOrganizationName).toHaveBeenCalled();
-      expect(openUrlSpy).toHaveBeenCalledWith(
-        `https://dev.azure.com/testOrg/${sampleSettings.projectId}/_pulls?state=active`
-      );
+      // Should call getPullRequestListUrl with correct parameters
+      expect(azureDevOpsClient.getPullRequestListUrl).toHaveBeenCalledWith(expect.objectContaining({
+        projectId: sampleSettings.projectId,
+        organizationUrl: 'https://dev.azure.com/testOrg',
+        repositoryId: 'all'
+      }));
+      
+      // Should attempt to open the URL returned by getPullRequestListUrl
+      expect(openUrlSpy).toHaveBeenCalledWith(expectedUrl);
       openUrlSpy.mockRestore();
     });
 
@@ -419,7 +427,11 @@ describe('PullRequestTracker', () => {
       (azureDevOpsClient.getRepositories as jest.Mock).mockResolvedValue([
         { id: 'testRepo', name: 'Test-Repo-Name', url: 'someurl' }
       ]);
-      const openUrlSpy = jest.spyOn(prTracker as any, 'openUrl' as any).mockResolvedValue(undefined); // Added 'as any' to method name
+      
+      // Mock the URL generation and openUrl methods
+      const expectedUrl = `https://dev.azure.com/testOrg/${sampleSettings.projectId}/_git/Test-Repo-Name/pullrequests?state=active`;
+      (azureDevOpsClient.getPullRequestListUrl as jest.Mock).mockReturnValue(expectedUrl);
+      const openUrlSpy = jest.spyOn(prTracker as unknown as { openUrl: (url: string) => Promise<void> }, 'openUrl').mockResolvedValue(undefined);
 
       // Create event with valid settings (specific repository)
       const ev = {
@@ -431,12 +443,16 @@ describe('PullRequestTracker', () => {
 
       await prTracker.onKeyDown(ev as unknown as KeyDownEvent<JsonObject>);
 
-      // Should attempt to open the repository-level PR URL
-      expect(azureDevOpsClient.getOrganizationName).toHaveBeenCalled();
-      expect(azureDevOpsClient.getRepositories).toHaveBeenCalledWith(sampleSettings.projectId);
-      expect(openUrlSpy).toHaveBeenCalledWith(
-        `https://dev.azure.com/testOrg/${sampleSettings.projectId}/_git/Test-Repo-Name/pullrequests?state=active`
-      );
+      // Should call getPullRequestListUrl with correct parameters including repositoryName
+      expect(azureDevOpsClient.getPullRequestListUrl).toHaveBeenCalledWith(expect.objectContaining({
+        projectId: sampleSettings.projectId,
+        organizationUrl: 'https://dev.azure.com/testOrg',
+        repositoryId: 'testRepo',
+        repositoryName: 'Test-Repo-Name'
+      }));
+      
+      // Should attempt to open the URL returned by getPullRequestListUrl
+      expect(openUrlSpy).toHaveBeenCalledWith(expectedUrl);
       openUrlSpy.mockRestore();
     });
 
@@ -444,8 +460,8 @@ describe('PullRequestTracker', () => {
       (settingsManager.hasValidAuthSettings as jest.Mock).mockReturnValue(true);
       (prTracker as unknown as { isConnected: boolean }).isConnected = true;
       (azureDevOpsClient.getOrganizationName as jest.Mock).mockReturnValue('testOrg');
-      const openUrlSpy = jest.spyOn(prTracker as any, 'openUrl' as any).mockRejectedValue(new Error('Open failed')); // Added 'as any' to method name
-      const updatePrStatusSpy = jest.spyOn(prTracker as any, 'updatePrStatus' as any).mockResolvedValue(undefined); // Added 'as any' to method name
+      const openUrlSpy = jest.spyOn(prTracker as unknown as { openUrl: (url: string) => Promise<void> }, 'openUrl').mockRejectedValue(new Error('Open failed'));
+      // We don't need this spy since we're not verifying updatePrStatus is called in this test
 
       const ev = {
         action: { id: 'test-context' },
@@ -464,8 +480,10 @@ describe('PullRequestTracker', () => {
       (settingsManager.hasValidAuthSettings as jest.Mock).mockReturnValue(true);
       (prTracker as unknown as { isConnected: boolean }).isConnected = true;
       (azureDevOpsClient.getOrganizationName as jest.Mock).mockReturnValue('testOrg');
-      const openUrlSpy = jest.spyOn(prTracker as any, 'openUrl').mockRejectedValue(new Error('Open failed'));
-      const updatePrStatusSpy = jest.spyOn(prTracker as any, 'updatePrStatus').mockResolvedValue(undefined);
+      const openUrlSpy = jest.spyOn(prTracker as unknown as { openUrl: (url: string) => Promise<void> }, 'openUrl').mockRejectedValue(new Error('Open failed'));
+      const updatePrStatusSpy = jest.spyOn(prTracker as unknown as { 
+        updatePrStatus: (context: string, settings: IPullRequestMonitorSettings) => Promise<void> 
+      }, 'updatePrStatus').mockResolvedValue(undefined);
 
 
       const ev = {
@@ -513,7 +531,7 @@ describe('PullRequestTracker', () => {
       
       // Should update button appearance
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('2 PRs');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should fetch PRs for all repositories when repositoryId is "all"', async () => {
@@ -552,7 +570,7 @@ describe('PullRequestTracker', () => {
       
       // Should update button appearance with combined count (2 PRs)
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('2 PRs');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should show error when API throws exception', async () => {
@@ -571,7 +589,7 @@ describe('PullRequestTracker', () => {
       
       // Should show error message
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('Error');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should handle notifications when PR count changes', async () => {
@@ -604,7 +622,7 @@ describe('PullRequestTracker', () => {
       
       // Should show "No PRs" message
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('No PRs');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should show "1 PR" when count is 1', async () => {
@@ -618,7 +636,7 @@ describe('PullRequestTracker', () => {
       
       // Should show "1 PR" message
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('1 PR');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should show "{count} PRs" when count is greater than 1', async () => {
@@ -632,7 +650,7 @@ describe('PullRequestTracker', () => {
       
       // Should show "{count} PRs" message
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('5 PRs');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
   });
 
@@ -647,7 +665,7 @@ describe('PullRequestTracker', () => {
       
       // Should show configuration required message
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('Setup\nRequired');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should show disconnected state', async () => {
@@ -660,7 +678,7 @@ describe('PullRequestTracker', () => {
       
       // Should show disconnected message
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('ADO\nDisconnected');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should show error state', async () => {
@@ -673,7 +691,7 @@ describe('PullRequestTracker', () => {
       
       // Should show error message
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('Error');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should update button with title and state', async () => {
@@ -688,7 +706,7 @@ describe('PullRequestTracker', () => {
       
       // Should set the title and state
       expect(mockKeyAction.setTitle).toHaveBeenCalledWith('Custom Title');
-      expect(mockKeyAction.setState).toHaveBeenCalledWith(0);
+      // setState is no longer called directly in the implementation
     });
     
     it('should handle non-existent action context', async () => {

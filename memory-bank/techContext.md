@@ -80,7 +80,7 @@
 ### Testing & Quality Assurance
 
 - **Run Tests**: `npm run test` - Runs Jest tests
-- **Watch Tests**: `npm run test:watch` - Runs Jest tests in watch mode 
+- **Watch Tests**: `npm run test:watch` - Runs Jest tests in watch mode
 - **Test Coverage**: `npm run test:coverage` - Runs tests with coverage reporting
 - **Linting**: `npm run lint` - Runs ESLint on TypeScript files
 - **Fix Linting Issues**: `npm run lint:fix` - Runs ESLint and fixes issues automatically

@@ -21,7 +21,9 @@ jest.mock('node:timers', () => ({
 }));
 
 // Mock console methods to reduce noise in test output
+// eslint-disable-next-line no-console
 const originalConsoleLog = console.log;
+// eslint-disable-next-line no-console
 const originalConsoleError = console.error;
 
 // Mock streamDeck logger (for testConnection method)
@@ -35,7 +37,9 @@ jest.mock('@elgato/streamdeck', () => ({
 }));
 
 beforeAll(() => {
+  // eslint-disable-next-line no-console
   console.log = jest.fn();
+  // eslint-disable-next-line no-console
   console.error = jest.fn();
 });
 
@@ -260,23 +264,25 @@ describe('AzureDevOpsClient - Enhanced Tests', () => {
         mockFetch.mockReset();
         mockFetch.mockResolvedValueOnce(createMockResponse(500, { message: 'Internal Server Error' }));
         
-        // Use try-catch for more predictable error handling
-        let serverError: ApiError | undefined;
+        // Use a more direct approach without conditional expect statements
+        await expect(azureDevOpsClient.getPipelineDefinitions('test-project'))
+          .rejects.toThrow();
+        
+        // Use a separate try/catch to get the error for type checking
+        let error: unknown;
         try {
           await azureDevOpsClient.getPipelineDefinitions('test-project');
-        } catch (error) {
-          if (error instanceof ApiError) {
-            serverError = error;
-          }
+        } catch (e) {
+          error = e;
         }
         
-        expect(serverError).toBeDefined();
-        if (serverError) {
-          expect(serverError).toBeInstanceOf(ApiError);
-          expect(serverError.type).toBe(ApiErrorType.ServerError);
-          expect(serverError.retryable).toBe(true);
-          expect(serverError.statusCode).toBe(500);
-        }
+        // Non-conditional assertions
+        expect(error).toBeDefined();
+        const apiError = error as ApiError;
+        expect(apiError).toBeInstanceOf(ApiError);
+        expect(apiError.type).toBe(ApiErrorType.ServerError);
+        expect(apiError.retryable).toBe(true);
+        expect(apiError.statusCode).toBe(500);
       } finally {
         // Restore original retries
         // @ts-ignore
